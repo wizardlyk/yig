@@ -1,20 +1,21 @@
 package v2
 
 import (
-	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/circuitbreak"
-	"github.com/journeymidnight/yig/helper"
-	"fmt"
-	"net/http"
-	"io/ioutil"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"github.com/journeymidnight/yig/circuitbreak"
+	"github.com/journeymidnight/yig/helper"
+	"github.com/journeymidnight/yig/iam/common"
+	"github.com/journeymidnight/yig/yigtracer"
+	"io/ioutil"
+	"net/http"
 )
 
 type AccessKeyItemList struct {
-	Page int `json:"page"`
-	Size int `json:"size"`
-	Total int `json:"total_count"`
+	Page    int             `json:"page"`
+	Size    int             `json:"size"`
+	Total   int             `json:"total_count"`
 	Content []AccessKeyItem `json:"content"`
 }
 
@@ -29,12 +30,16 @@ type AccessKeyItem struct {
 	Enabled      int    `json:"enabled"`
 }
 
-
 type Client struct {
 	httpClient *circuitbreak.CircuitClient
 }
 
-func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err error) {
+var tracer = yigtracer.New()
+var logger = helper.Logger
+
+func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
+	span := tracer.StartSpan("iam")
+
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -78,10 +83,22 @@ func (a Client) GetKeysByUid (uid string) (credentials []common.Credential, err 
 		credential.AllowOtherUserAccess = false
 		credentials = append(credentials, credential)
 	}
+
+	span.Finish()
+	spans := tracer.FinishedSpans()
+	iamSpan := spans[0]
+	//ms
+	startTime := iamSpan.StartTime.UnixNano() / 1e6
+	finishTime := iamSpan.FinishTime.UnixNano() / 1e6
+	time := finishTime - startTime
+	logger.Println(5, "iam---GetKeysByUid：", time, "ms")
+
 	return
 }
 
-func (a Client) GetCredential (accessKey string) (credential common.Credential, err error) {
+func (a Client) GetCredential(accessKey string) (credential common.Credential, err error) {
+	span := tracer.StartSpan("iam")
+
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -117,5 +134,15 @@ func (a Client) GetCredential (accessKey string) (credential common.Credential, 
 	credential.AccessKeyID = resp.AccessKey
 	credential.SecretAccessKey = resp.AccessSecret
 	credential.AllowOtherUserAccess = false
+
+	span.Finish()
+	spans := tracer.FinishedSpans()
+	iamSpan := spans[0]
+	//ms
+	startTime := iamSpan.StartTime.UnixNano() / 1e6
+	finishTime := iamSpan.FinishTime.UnixNano() / 1e6
+	time := finishTime - startTime
+	logger.Println(5, "iam---GetCredential：", time, "ms")
+
 	return
 }

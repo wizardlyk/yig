@@ -25,12 +25,13 @@ import (
 	"net/url"
 	"strings"
 
-	mux "github.com/gorilla/mux"
+	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
+	"github.com/journeymidnight/yig/yigtracer"
 	"strconv"
 )
 
@@ -212,22 +213,48 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // -----------
 // This implementation of the GET operation returns a list of all buckets
 // owned by the authenticated sender of the request.
+
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
+	var tracer = yigtracer.New()
+	var logger = helper.Logger
+	var startTime int64
+	var finishTime int64
+	span := tracer.StartSpan("ListBuckets")
+
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
+
+	//请求是否已经验证
+	span1 := tracer.StartSpan("IsReqAuthenticated")
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
+	span1.Finish();
 
+	span2 := tracer.StartSpan("")
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
+	span2.Finish()
+
+	logger.Println(5, "-----------------------")
+	span.Finish()
+	spans := tracer.FinishedSpans()
+	finishSpan := spans[0]
+	//ms
+	startTime = finishSpan.StartTime.UnixNano() / 1e6
+	finishTime = finishSpan.FinishTime.UnixNano() / 1e6
+	time := finishTime - startTime
+	logger.Println(5, "ListBuckets：", time, "ms")
+	logger.Println(5, "-----------------------")
+
 	if err == nil {
 		// generate response
 		response := GenerateListBucketsResponse(bucketsInfo, credential)
 		encodedSuccessResponse := EncodeResponse(response)
 		// write response
 		WriteSuccessResponse(w, encodedSuccessResponse)
+
 		return
 	}
 	helper.ErrorIf(err, "Unable to list buckets.")

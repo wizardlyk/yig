@@ -19,6 +19,7 @@ package api
 import (
 	"encoding/hex"
 	"encoding/xml"
+	"github.com/journeymidnight/yig/yigtracer"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -27,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"errors"
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	"github.com/journeymidnight/yig/api/datatype/policy"
@@ -36,8 +38,9 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
-	"errors"
 )
+
+
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
 var supportedGetReqParams = map[string]string{
@@ -100,6 +103,11 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
+	tracer := yigtracer.New()
+	logger := helper.Logger
+	logger.Println(5, "-----------------------")
+	span := tracer.StartSpan("GetObject")
+
 	var objectName, bucketName string
 	vars := mux.Vars(r)
 	bucketName = vars["bucket"]
@@ -123,6 +131,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		//   status code 403 ("access denied") error.`
 		if signature.GetRequestAuthType(r) == signature.AuthTypeAnonymous {
 			bucket, err := api.ObjectAPI.GetBucketInfo(bucketName, credential)
+
 			if err != nil && err != ErrBucketAccessForbidden {
 				WriteErrorResponse(w, r, err)
 				return
@@ -147,6 +156,18 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
+
+	logger.Println(5, "-----------------------")
+	span.Finish()
+	spans := tracer.FinishedSpans()
+	finishSpan := spans[0]
+	//ms
+	startTime := finishSpan.StartTime.UnixNano() / 1e6
+	finishTime := finishSpan.FinishTime.UnixNano() / 1e6
+	time := finishTime - startTime
+	logger.Println(5, "GetObject：", time, "ms")
+	logger.Println(5, "-----------------------")
+
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
 		if err == ErrNoSuchKey {
@@ -265,6 +286,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 		// call wrter.Write(nil) to set appropriate headers.
 		writer.Write(nil)
 	}
+
 }
 
 // HeadObjectHandler - HEAD Object
@@ -824,7 +846,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		return
 	}
 
-	if err == ErrNoSuchKey  {
+	if err == ErrNoSuchKey {
 		if isFirstAppend(position) {
 			acl, err = getAclFromHeader(r.Header)
 			if err != nil {
@@ -874,7 +896,7 @@ func (api ObjectAPIHandlers) AppendObjectHandler(w http.ResponseWriter, r *http.
 		//"X-Amz-Server-Side-Encryption-Aws-Kms-Key-Id",
 		//"X-Amz-Server-Side-Encryption-Customer-Algorithm",
 		//"X-Amz-Server-Side-Encryption-Customer-Key-Md5",
-	}{
+	} {
 		if header := r.Header.Get(headerName); header != "" {
 			w.Header().Set(headerName, header)
 		}
@@ -1425,7 +1447,7 @@ func (api ObjectAPIHandlers) CompleteMultipartUploadHandler(w http.ResponseWrite
 	}
 	completeMultipartBytes, err := ioutil.ReadAll(r.Body)
 	if err != nil {
-		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.",)
+		helper.ErrorIf(err, "Unable to complete multipart upload when read request body.", )
 		WriteErrorResponse(w, r, ErrInternalError)
 		return
 	}
