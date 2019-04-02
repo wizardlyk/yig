@@ -178,3 +178,8 @@ func parseSseHeader(header http.Header) (request SseRequest, err error) {
 func hasSuffix(s string, suffix string) bool {
 	return strings.HasSuffix(s, suffix)
 }
+
+func httpTraceAll(f http.HandlerFunc) http.HandlerFunc {
+
+	return f
+}

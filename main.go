@@ -24,19 +24,19 @@ func DumpStacks() {
 
 func main() {
 	// Errors should cause panic so as to log to stderr for function calls in main()
+	//------------------------------
+	rand.Seed(time.Now().UnixNano())
+
+	helper.SetupConfig()
 
 	x, err := os.OpenFile("/var/log/yig/tracer.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		panic("Failed to open log file " + "/var/log/yig/tracer.log")
 	}
 	defer x.Close()
-	tracerLogger = log.NewTracerLog(x, "[tracer]", log.LstdFlags, 20)
+	tracerLogger = log.NewTracerLog(x, "[tracer]", log.LstdFlags, helper.CONFIG.LogLevel)
 	helper.TracerLogger = tracerLogger
 
-	//------------------------------
-	rand.Seed(time.Now().UnixNano())
-
-	helper.SetupConfig()
 
 	f, err := os.OpenFile(helper.CONFIG.LogPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {

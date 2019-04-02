@@ -222,30 +222,28 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	var finishTime int64
 	var consumeTime int64
 	tracerLogger.Println(5, "-----------start------------")
-	span := tracer.StartSpan("ListBuckets",
-		opentracing.Tags(map[string]interface{}{"ListBuckets": "总时间"}))
+	span := tracer.StartSpan("ListBuckets")
 
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
 
 	//请求是否已经验证
-	span1 := span.Tracer().StartSpan("IsReqAuthenticated",
-		opentracing.ChildOf(span.Context()),
-		opentracing.Tags(map[string]interface{}{"IsReqAuthenticated": "验证token的时间"}))
-	time.Sleep(time.Millisecond * 500)
+	spanToken := span.Tracer().StartSpan("IsReqAuthenticated",
+		opentracing.ChildOf(span.Context()))
+	time.Sleep(time.Millisecond * 50)
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
+		spanToken.Finish()
 		return
 	}
-	span1.Finish();
+	spanToken.Finish()
 
-	span2 := span.Tracer().StartSpan("TiDB---ListBuckets",
-		opentracing.ChildOf(span.Context()),
-		opentracing.Tags(map[string]interface{}{"TiDB---ListBuckets": "请求Tidb的时间"}))
-	time.Sleep(time.Millisecond * 1000)
+	spanTR := span.Tracer().StartSpan("TiDB/Redis---ListBuckets",
+		opentracing.ChildOf(span.Context()))
+	time.Sleep(time.Millisecond * 100)
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
-	span2.Finish()
+	spanTR.Finish()
 
 	span.Finish()
 	spans := tracer.FinishedSpans()
@@ -256,19 +254,20 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	//ms
 	startTime = tokenSpan.StartTime.UnixNano() / 1e6
 	finishTime = tokenSpan.FinishTime.UnixNano() / 1e6
-	tracerLogger.Println(5,tokenSpan.SpanContext.TraceID,tokenSpan.SpanContext.SpanID,tokenSpan.ParentID)
+	//tracerLogger.Println(5, tokenSpan.SpanContext.TraceID, tokenSpan.SpanContext.SpanID, tokenSpan.ParentID)
 	consumeTime = finishTime - startTime
 	tracerLogger.Println(5, "验证token的时间：", consumeTime, "ms")
 
 	startTime = tidbSpan.StartTime.UnixNano() / 1e6
 	finishTime = tidbSpan.FinishTime.UnixNano() / 1e6
-	tracerLogger.Println(5,tidbSpan.SpanContext.TraceID,tidbSpan.SpanContext.SpanID,tidbSpan.ParentID)
+	//tracerLogger.Println(5, tidbSpan.SpanContext.TraceID, tidbSpan.SpanContext.SpanID, tidbSpan.ParentID)
 	consumeTime = finishTime - startTime
 	tracerLogger.Println(5, "请求Tidb的时间：", consumeTime, "ms")
 
 	startTime = totalSpan.StartTime.UnixNano() / 1e6
 	finishTime = totalSpan.FinishTime.UnixNano() / 1e6
-	tracerLogger.Println(5,totalSpan.SpanContext.TraceID,totalSpan.SpanContext.SpanID,tokenSpan.ParentID)
+	//tracerLogger.Println(5, totalSpan.SpanContext.TraceID, totalSpan.SpanContext.SpanID, tokenSpan.ParentID)
+	tracerLogger.Println(5, "TracerID:",totalSpan.SpanContext.TraceID)
 	consumeTime = finishTime - startTime
 	tracerLogger.Println(5, "总时间：", consumeTime, "ms")
 	tracerLogger.Println(5, "-----------end-----------")
