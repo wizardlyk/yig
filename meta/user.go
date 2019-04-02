@@ -11,15 +11,23 @@ const (
 )
 
 func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, err error) {
+
+	//span1 := tracer.StartSpan("tidb")
 	getUserBuckets := func() (bs interface{}, err error) {
 		return m.Client.GetUserBuckets(userId)
 	}
+	//span1.Finish()
+
 	unmarshaller := func(in []byte) (interface{}, error) {
 		buckets := make([]string, 0)
 		err := helper.MsgPackUnMarshal(in, &buckets)
 		return buckets, err
 	}
+
+	//span2 := tracer.StartSpan("redis")
 	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)
+	//span2.Finish()
+
 	if err != nil {
 		return
 	}

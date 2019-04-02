@@ -18,6 +18,7 @@ type YigSpanContext struct {
 }
 
 type YigSpan struct {
+	//golang的读写锁
 	sync.RWMutex
 	ParentID int
 
@@ -40,12 +41,14 @@ func (c YigSpanContext) ForeachBaggageItem(handler func(k, v string) bool) () {
 }
 
 func (s *YigSpan) Finish() {
+	//确保finishTime唯一确定
 	s.Lock()
 	s.FinishTime = time.Now()
 	s.Unlock()
 	s.tracer.recordSpan(s)
 }
 
+//和finish类似但是 有明确的 timestamp和log
 func (s *YigSpan) FinishWithOptions(opt opentracing.FinishOptions) {
 	s.Lock()
 	s.FinishTime = time.Now()
@@ -61,7 +64,7 @@ func (s *YigSpan) FinishWithOptions(opt opentracing.FinishOptions) {
 func (s *YigSpan) Context() opentracing.SpanContext {
 	s.Lock()
 	defer s.Unlock()
-	return &s.SpanContext
+	return s.SpanContext
 }
 
 func (s *YigSpan) SetOperationName(operationName string) opentracing.Span {
@@ -89,43 +92,38 @@ func (s *YigSpan) SetTag(key string, value interface{}) opentracing.Span {
 }
 
 func (s *YigSpan) LogFields(fields ...log.Field) {
-	fmt.Println("LogFields")
-	return
+	panic("implement me")
 }
 
 func (s *YigSpan) LogKV(keyValues ...interface{}) {
-	fmt.Println("LogKV")
-	return
+	panic("implement me")
 }
 
 func (s *YigSpan) SetBaggageItem(key, value string) opentracing.Span {
-	fmt.Println("SetBaggageItem")
 	//s.Lock()
 	//defer s.Unlock()
 	//s.SpanContext = s.SpanContext.WithBaggageItem(key, val)
-	return s
+	panic("implement me")
 }
 
 func (s *YigSpan) BaggageItem(key string) string {
-	fmt.Println("BaggageItem")
-	return ""
+	panic("implement me")
 }
 
 func (s *YigSpan) Tracer() opentracing.Tracer {
-	fmt.Println("Tracer")
 	return s.tracer
 }
 
 func (s *YigSpan) LogEvent(event string) {
-	fmt.Println("LogEvent")
+	panic("implement me")
 }
 
 func (s *YigSpan) LogEventWithPayload(event string, payload interface{}) {
-	fmt.Println("LogEventWithPayload")
+	panic("implement me")
 }
 
 func (s *YigSpan) Log(data opentracing.LogData) {
-
+	panic("implement me")
 }
 
 func newYigSpan(t *YigTracer, name string, opts opentracing.StartSpanOptions) *YigSpan {

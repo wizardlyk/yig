@@ -69,12 +69,12 @@ func (t *YigTracer) StartSpan(operationName string, opts ...opentracing.StartSpa
 	return newYigSpan(t, operationName, sso)
 }
 
-func (t YigTracer) Inject(sm opentracing.SpanContext, format interface{}, carrier interface{}) error {
-	return nil
+func (t *YigTracer) Inject(sm opentracing.SpanContext, format interface{}, carrier interface{}) error {
+	panic("implement me")
 }
 
-func (t YigTracer) Extract(format interface{}, carrier interface{}) (opentracing.SpanContext, error) {
-	return nil, nil
+func (t *YigTracer) Extract(format interface{}, carrier interface{}) (opentracing.SpanContext, error) {
+	panic("implement me")
 }
 
 type Injector interface {

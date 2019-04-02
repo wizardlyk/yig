@@ -18,12 +18,14 @@ package api
 
 import (
 	"encoding/xml"
+	"github.com/opentracing/opentracing-go"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
@@ -213,40 +215,63 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // -----------
 // This implementation of the GET operation returns a list of all buckets
 // owned by the authenticated sender of the request.
-
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
 	var tracer = yigtracer.New()
-	var logger = helper.Logger
+	var tracerLogger = helper.TracerLogger
 	var startTime int64
 	var finishTime int64
-	span := tracer.StartSpan("ListBuckets")
+	var consumeTime int64
+	tracerLogger.Println(5, "-----------start------------")
+	span := tracer.StartSpan("ListBuckets",
+		opentracing.Tags(map[string]interface{}{"ListBuckets": "总时间"}))
 
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
 
 	//请求是否已经验证
-	span1 := tracer.StartSpan("IsReqAuthenticated")
+	span1 := span.Tracer().StartSpan("IsReqAuthenticated",
+		opentracing.ChildOf(span.Context()),
+		opentracing.Tags(map[string]interface{}{"IsReqAuthenticated": "验证token的时间"}))
+	time.Sleep(time.Millisecond * 500)
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
 		return
 	}
 	span1.Finish();
 
-	span2 := tracer.StartSpan("")
+	span2 := span.Tracer().StartSpan("TiDB---ListBuckets",
+		opentracing.ChildOf(span.Context()),
+		opentracing.Tags(map[string]interface{}{"TiDB---ListBuckets": "请求Tidb的时间"}))
+	time.Sleep(time.Millisecond * 1000)
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 	span2.Finish()
 
-	logger.Println(5, "-----------------------")
 	span.Finish()
 	spans := tracer.FinishedSpans()
-	finishSpan := spans[0]
+
+	tokenSpan := spans[0]
+	tidbSpan := spans[1]
+	totalSpan := spans[2]
 	//ms
-	startTime = finishSpan.StartTime.UnixNano() / 1e6
-	finishTime = finishSpan.FinishTime.UnixNano() / 1e6
-	time := finishTime - startTime
-	logger.Println(5, "ListBuckets：", time, "ms")
-	logger.Println(5, "-----------------------")
+	startTime = tokenSpan.StartTime.UnixNano() / 1e6
+	finishTime = tokenSpan.FinishTime.UnixNano() / 1e6
+	tracerLogger.Println(5,tokenSpan.SpanContext.TraceID,tokenSpan.SpanContext.SpanID,tokenSpan.ParentID)
+	consumeTime = finishTime - startTime
+	tracerLogger.Println(5, "验证token的时间：", consumeTime, "ms")
+
+	startTime = tidbSpan.StartTime.UnixNano() / 1e6
+	finishTime = tidbSpan.FinishTime.UnixNano() / 1e6
+	tracerLogger.Println(5,tidbSpan.SpanContext.TraceID,tidbSpan.SpanContext.SpanID,tidbSpan.ParentID)
+	consumeTime = finishTime - startTime
+	tracerLogger.Println(5, "请求Tidb的时间：", consumeTime, "ms")
+
+	startTime = totalSpan.StartTime.UnixNano() / 1e6
+	finishTime = totalSpan.FinishTime.UnixNano() / 1e6
+	tracerLogger.Println(5,totalSpan.SpanContext.TraceID,totalSpan.SpanContext.SpanID,tokenSpan.ParentID)
+	consumeTime = finishTime - startTime
+	tracerLogger.Println(5, "总时间：", consumeTime, "ms")
+	tracerLogger.Println(5, "-----------end-----------")
 
 	if err == nil {
 		// generate response

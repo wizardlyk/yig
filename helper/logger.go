@@ -29,6 +29,7 @@ import (
 )
 
 var Logger *log.Logger
+var TracerLogger *log.TracerLogger
 
 // sysInfo returns useful system statistics.
 func sysInfo() map[string]string {

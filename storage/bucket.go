@@ -371,6 +371,7 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 }
 
 func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error) {
+	//tidb
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
 	if err != nil {
 		return

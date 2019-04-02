@@ -14,6 +14,7 @@ import (
 )
 
 var logger *log.Logger
+var tracerLogger *log.TracerLogger
 
 func DumpStacks() {
 	buf := make([]byte, 1<<16)
@@ -24,6 +25,15 @@ func DumpStacks() {
 func main() {
 	// Errors should cause panic so as to log to stderr for function calls in main()
 
+	x, err := os.OpenFile("/var/log/yig/tracer.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		panic("Failed to open log file " + "/var/log/yig/tracer.log")
+	}
+	defer x.Close()
+	tracerLogger = log.NewTracerLog(x, "[tracer]", log.LstdFlags, 20)
+	helper.TracerLogger = tracerLogger
+
+	//------------------------------
 	rand.Seed(time.Now().UnixNano())
 
 	helper.SetupConfig()

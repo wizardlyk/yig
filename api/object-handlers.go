@@ -105,7 +105,7 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
 	tracer := yigtracer.New()
 	logger := helper.Logger
-	logger.Println(5, "-----------------------")
+	logger.Println(5, "-----------start------------")
 	span := tracer.StartSpan("GetObject")
 
 	var objectName, bucketName string
@@ -157,7 +157,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
 
-	logger.Println(5, "-----------------------")
 	span.Finish()
 	spans := tracer.FinishedSpans()
 	finishSpan := spans[0]
@@ -166,7 +165,7 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	finishTime := finishSpan.FinishTime.UnixNano() / 1e6
 	time := finishTime - startTime
 	logger.Println(5, "GetObject：", time, "ms")
-	logger.Println(5, "-----------------------")
+	logger.Println(5, "----------end-------------")
 
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
