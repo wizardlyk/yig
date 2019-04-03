@@ -22,7 +22,6 @@ func (m *Meta) GetUserBuckets(userId string, willNeed bool) (buckets []string, e
 		return buckets, err
 	}
 
-	//从Redis或者Tidb中获取
 	bs, err := m.Cache.Get(redis.UserTable, userId, getUserBuckets, unmarshaller, willNeed)
 
 	if err != nil {

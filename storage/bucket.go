@@ -371,12 +371,11 @@ func (yig *YigStorage) DeleteBucketPolicy(credential common.Credential, bucketNa
 }
 
 func (yig *YigStorage) ListBuckets(credential common.Credential) (buckets []meta.Bucket, err error) {
-	//获取buckets name 列表
 	bucketNames, err := yig.MetaStorage.GetUserBuckets(credential.UserId, true)
 	if err != nil {
 		return
 	}
-	//通过每个 bucketname 获取 对应bucket的信息
+
 	for _, bucketName := range bucketNames {
 		bucket, err := yig.MetaStorage.GetBucket(bucketName, true)
 		if err != nil {

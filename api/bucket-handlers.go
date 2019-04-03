@@ -18,15 +18,6 @@ package api
 
 import (
 	"encoding/xml"
-	"github.com/opentracing/opentracing-go"
-	"io"
-	"io/ioutil"
-	"mime/multipart"
-	"net/http"
-	"net/url"
-	"strings"
-	"time"
-
 	"github.com/gorilla/mux"
 	. "github.com/journeymidnight/yig/api/datatype"
 	. "github.com/journeymidnight/yig/error"
@@ -34,7 +25,14 @@ import (
 	"github.com/journeymidnight/yig/iam/common"
 	"github.com/journeymidnight/yig/signature"
 	"github.com/journeymidnight/yig/yigtracer"
+	"github.com/opentracing/opentracing-go"
+	"io"
+	"io/ioutil"
+	"mime/multipart"
+	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 )
 
 // GetBucketLocationHandler - GET Bucket location.
@@ -215,23 +213,27 @@ func (api ObjectAPIHandlers) ListVersionedObjectsHandler(w http.ResponseWriter, 
 // -----------
 // This implementation of the GET operation returns a list of all buckets
 // owned by the authenticated sender of the request.
+var Tracer *yigtracer.YigTracer
+var Span opentracing.Span
+
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
-	var tracer = yigtracer.New()
+	Tracer = yigtracer.New()
 	var tracerLogger = helper.TracerLogger
-	var startTime int64
-	var finishTime int64
-	var consumeTime int64
-	tracerLogger.Println(5, "-----------start------------")
-	span := tracer.StartSpan("ListBuckets")
+
+	//var yigSpanContext = yigtracer.YigSpanContext{7777, 4396, true, map[string]string{"Baggage": "行李"}}
+	//var spanReference = &opentracing.SpanReference{1, yigSpanContext}
+	Span = Tracer.StartSpan("ListBuckets",
+		//spanReference,
+		//opentracing.Tags(map[string]interface{}{"testTag": "这是一个tag"}),
+	)
 
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
 
 	//请求是否已经验证
-	spanToken := span.Tracer().StartSpan("IsReqAuthenticated",
-		opentracing.ChildOf(span.Context()))
-	time.Sleep(time.Millisecond * 50)
+	spanToken := Tracer.StartSpan("IsReqAuthenticated",
+		opentracing.ChildOf(Span.Context()))
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
 		spanToken.Finish()
@@ -239,38 +241,19 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 	}
 	spanToken.Finish()
 
-	spanTR := span.Tracer().StartSpan("TiDB/Redis---ListBuckets",
-		opentracing.ChildOf(span.Context()))
-	time.Sleep(time.Millisecond * 100)
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
-	spanTR.Finish()
 
-	span.Finish()
-	spans := tracer.FinishedSpans()
+	Span.Finish()
+	spans := Tracer.FinishedSpans()
 
-	tokenSpan := spans[0]
-	tidbSpan := spans[1]
-	totalSpan := spans[2]
-	//ms
-	startTime = tokenSpan.StartTime.UnixNano() / 1e6
-	finishTime = tokenSpan.FinishTime.UnixNano() / 1e6
-	//tracerLogger.Println(5, tokenSpan.SpanContext.TraceID, tokenSpan.SpanContext.SpanID, tokenSpan.ParentID)
-	consumeTime = finishTime - startTime
-	tracerLogger.Println(5, "验证token的时间：", consumeTime, "ms")
-
-	startTime = tidbSpan.StartTime.UnixNano() / 1e6
-	finishTime = tidbSpan.FinishTime.UnixNano() / 1e6
-	//tracerLogger.Println(5, tidbSpan.SpanContext.TraceID, tidbSpan.SpanContext.SpanID, tidbSpan.ParentID)
-	consumeTime = finishTime - startTime
-	tracerLogger.Println(5, "请求Tidb的时间：", consumeTime, "ms")
-
-	startTime = totalSpan.StartTime.UnixNano() / 1e6
-	finishTime = totalSpan.FinishTime.UnixNano() / 1e6
-	//tracerLogger.Println(5, totalSpan.SpanContext.TraceID, totalSpan.SpanContext.SpanID, tokenSpan.ParentID)
-	tracerLogger.Println(5, "TracerID:",totalSpan.SpanContext.TraceID)
-	consumeTime = finishTime - startTime
-	tracerLogger.Println(5, "总时间：", consumeTime, "ms")
-	tracerLogger.Println(5, "-----------end-----------")
+	for i := 0; i < len(spans); i++ {
+		theSpan := spans[i]
+		startTime := theSpan.StartTime.UnixNano() / 1e6
+		finishTime := theSpan.FinishTime.UnixNano() / 1e6
+		//SpanContext: TraceID,SpanID,Sampled,Baggage
+		tracerLogger.Println(5, "SpanContext==>", theSpan.SpanContext, "ParentID==>", theSpan.ParentID, "Tags==>", theSpan.Tags())
+		tracerLogger.Println(5, theSpan.OperationName, "==>time consuming：", finishTime-startTime, "ms")
+	}
 
 	if err == nil {
 		// generate response

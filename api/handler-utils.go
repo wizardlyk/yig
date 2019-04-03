@@ -180,6 +180,5 @@ func hasSuffix(s string, suffix string) bool {
 }
 
 func httpTraceAll(f http.HandlerFunc) http.HandlerFunc {
-
 	return f
 }
