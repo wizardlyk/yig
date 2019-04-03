@@ -19,7 +19,6 @@ package api
 import (
 	"encoding/hex"
 	"encoding/xml"
-	"github.com/journeymidnight/yig/yigtracer"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -39,8 +38,6 @@ import (
 	meta "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/signature"
 )
-
-
 
 // supportedGetReqParams - supported request parameters for GET presigned request.
 var supportedGetReqParams = map[string]string{
@@ -103,11 +100,6 @@ func (f funcToWriter) Write(p []byte) (int, error) {
 // This implementation of the GET operation retrieves object. To use GET,
 // you must have READ access to the object.
 func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Request) {
-	tracer := yigtracer.New()
-	logger := helper.Logger
-	logger.Println(5, "-----------start------------")
-	span := tracer.StartSpan("GetObject")
-
 	var objectName, bucketName string
 	vars := mux.Vars(r)
 	bucketName = vars["bucket"]
@@ -156,16 +148,6 @@ func (api ObjectAPIHandlers) GetObjectHandler(w http.ResponseWriter, r *http.Req
 	version := r.URL.Query().Get("versionId")
 	// Fetch object stat info.
 	object, err := api.ObjectAPI.GetObjectInfo(bucketName, objectName, version, credential)
-
-	span.Finish()
-	spans := tracer.FinishedSpans()
-	finishSpan := spans[0]
-	//ms
-	startTime := finishSpan.StartTime.UnixNano() / 1e6
-	finishTime := finishSpan.FinishTime.UnixNano() / 1e6
-	time := finishTime - startTime
-	logger.Println(5, "GetObject：", time, "ms")
-	logger.Println(5, "----------end-------------")
 
 	if err != nil {
 		helper.ErrorIf(err, "Unable to fetch object info.")
