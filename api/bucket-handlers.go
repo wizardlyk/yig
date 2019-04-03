@@ -245,7 +245,6 @@ func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.R
 
 	Span.Finish()
 	spans := Tracer.FinishedSpans()
-
 	for i := 0; i < len(spans); i++ {
 		theSpan := spans[i]
 		startTime := theSpan.StartTime.UnixNano() / 1e6

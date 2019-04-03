@@ -7,7 +7,6 @@ import (
 	"github.com/journeymidnight/yig/circuitbreak"
 	"github.com/journeymidnight/yig/helper"
 	"github.com/journeymidnight/yig/iam/common"
-	"github.com/journeymidnight/yig/yigtracer"
 	"io/ioutil"
 	"net/http"
 )
@@ -34,12 +33,9 @@ type Client struct {
 	httpClient *circuitbreak.CircuitClient
 }
 
-var tracer = yigtracer.New()
 var logger = helper.Logger
 
 func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err error) {
-	span := tracer.StartSpan("iam")
-
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -84,21 +80,10 @@ func (a Client) GetKeysByUid(uid string) (credentials []common.Credential, err e
 		credentials = append(credentials, credential)
 	}
 
-	span.Finish()
-	spans := tracer.FinishedSpans()
-	iamSpan := spans[0]
-	//ms
-	startTime := iamSpan.StartTime.UnixNano() / 1e6
-	finishTime := iamSpan.FinishTime.UnixNano() / 1e6
-	time := finishTime - startTime
-	logger.Println(5, "iam---GetKeysByUid：", time, "ms")
-
 	return
 }
 
 func (a Client) GetCredential(accessKey string) (credential common.Credential, err error) {
-	span := tracer.StartSpan("iam")
-
 	if a.httpClient == nil {
 		a.httpClient = circuitbreak.NewCircuitClientWithInsecureSSL()
 	}
@@ -134,15 +119,6 @@ func (a Client) GetCredential(accessKey string) (credential common.Credential, e
 	credential.AccessKeyID = resp.AccessKey
 	credential.SecretAccessKey = resp.AccessSecret
 	credential.AllowOtherUserAccess = false
-
-	span.Finish()
-	spans := tracer.FinishedSpans()
-	iamSpan := spans[0]
-	//ms
-	startTime := iamSpan.StartTime.UnixNano() / 1e6
-	finishTime := iamSpan.FinishTime.UnixNano() / 1e6
-	time := finishTime - startTime
-	logger.Println(5, "iam---GetCredential：", time, "ms")
 
 	return
 }
