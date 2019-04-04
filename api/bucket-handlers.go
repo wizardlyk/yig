@@ -217,41 +217,38 @@ var Tracer *yigtracer.YigTracer
 var Span opentracing.Span
 
 func (api ObjectAPIHandlers) ListBucketsHandler(w http.ResponseWriter, r *http.Request) {
-	Tracer = yigtracer.New()
-	var tracerLogger = helper.TracerLogger
-
-	//var yigSpanContext = yigtracer.YigSpanContext{7777, 4396, true, map[string]string{"Baggage": "行李"}}
-	//var spanReference = &opentracing.SpanReference{1, yigSpanContext}
-	Span = Tracer.StartSpan("ListBuckets",
-		//spanReference,
-		//opentracing.Tags(map[string]interface{}{"testTag": "这是一个tag"}),
-	)
-
 	// List buckets does not support bucket policies.
 	var credential common.Credential
 	var err error
 
 	//请求是否已经验证
-	spanToken := Tracer.StartSpan("IsReqAuthenticated",
-		opentracing.ChildOf(Span.Context()))
 	if credential, err = signature.IsReqAuthenticated(r); err != nil {
 		WriteErrorResponse(w, r, err)
-		spanToken.Finish()
 		return
 	}
-	spanToken.Finish()
+
+	//tracer start
+	Tracer = yigtracer.New()
+	var tracerLogger = helper.TracerLogger
+	//requestId, _ := strconv.Atoi(string(helper.GenerateRandomId()))
+	//TracerID无法使用requestId，TracerID是int类型
+	var yigSpanContext = yigtracer.YigSpanContext{7777, 4396, true, map[string]string{"Baggage": "行李"}}
+	var spanReference = &opentracing.SpanReference{1, yigSpanContext}
+	Span = Tracer.StartSpan("ListBuckets",
+		spanReference,
+	)
 
 	bucketsInfo, err := api.ObjectAPI.ListBuckets(credential)
 
 	Span.Finish()
+	//可以修改为每次span调用finish方法就输出log
 	spans := Tracer.FinishedSpans()
 	for i := 0; i < len(spans); i++ {
 		theSpan := spans[i]
 		startTime := theSpan.StartTime.UnixNano() / 1e6
 		finishTime := theSpan.FinishTime.UnixNano() / 1e6
-		//SpanContext: TraceID,SpanID,Sampled,Baggage
-		tracerLogger.Println(5, "SpanContext==>", theSpan.SpanContext, "ParentID==>", theSpan.ParentID, "Tags==>", theSpan.Tags())
-		tracerLogger.Println(5, theSpan.OperationName, "==>time consuming：", finishTime-startTime, "ms")
+		tracerLogger.Println(5, theSpan.FinishTime, " ", theSpan.SpanContext.TraceID, " ", theSpan.SpanContext.SpanID, " ",
+			theSpan.OperationName, " ", finishTime-startTime, " ", theSpan.SpanContext.Baggage)
 	}
 
 	if err == nil {

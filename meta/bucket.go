@@ -1,10 +1,12 @@
 package meta
 
 import (
+	"github.com/journeymidnight/yig/api"
 	. "github.com/journeymidnight/yig/error"
 	"github.com/journeymidnight/yig/helper"
 	. "github.com/journeymidnight/yig/meta/types"
 	"github.com/journeymidnight/yig/redis"
+	"github.com/opentracing/opentracing-go"
 )
 
 // Note the usage info got from this method is possibly not accurate because we don't
@@ -20,7 +22,9 @@ func (m *Meta) GetBucket(bucketName string, willNeed bool) (bucket Bucket, err e
 		err := helper.MsgPackUnMarshal(in, &bucket)
 		return bucket, err
 	}
+	spanCache := api.Tracer.StartSpan("meta", opentracing.ChildOf(api.Span.Context()))
 	b, err := m.Cache.Get(redis.BucketTable, bucketName, getBucket, unmarshaller, willNeed)
+	spanCache.Finish()
 	if err != nil {
 		return
 	}
